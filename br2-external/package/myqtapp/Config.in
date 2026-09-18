@@ -1,0 +1,10 @@
+config BR2_PACKAGE_MYQTAPP
+	bool "myqtapp"
+	select BR2_PACKAGE_QT5BASE
+	select BR2_PACKAGE_QT5DECLARATIVE
+	select BR2_PACKAGE_QT5QUICKCONTROLS2
+	help
+	  Custom C++/Qt Quick (QML) application for the Orange Pi Zero3.
+
+	  This is a placeholder skeleton - replace the sources under
+	  package/myqtapp/src/ with your real application.

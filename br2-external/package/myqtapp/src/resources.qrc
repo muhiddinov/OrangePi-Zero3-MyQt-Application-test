@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="payzone-logo.png">assets/payzone-logo.png</file>
+    </qresource>
+</RCC>

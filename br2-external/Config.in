@@ -1,0 +1,1 @@
+source "$BR2_EXTERNAL_ORANGEPI_ZERO3_APP_PATH/package/myqtapp/Config.in"

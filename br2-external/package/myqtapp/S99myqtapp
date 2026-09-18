@@ -1,0 +1,77 @@
+#!/bin/sh
+#
+# Starts myqtapp as the sole (fullscreen kiosk) GUI on the device.
+# No desktop environment / window manager / X11 / Wayland is used.
+
+NAME=myqtapp
+PIDFILE=/var/run/$NAME.pid
+DAEMON=/usr/bin/$NAME
+LOGFILE=/var/log/$NAME.log
+
+export HOME=/root
+# Buildroot's Qt5 has no fontconfig integration by default, so it looks for
+# a hardcoded /usr/lib/fonts that never existed - QFontDatabase found zero
+# fonts, which is a likely contributor to both the slow startup (repeated
+# failed directory scans) and the segfault once glyph rendering was reached.
+export QT_QPA_FONTDIR=/usr/share/fonts/dejavu
+# The EGLFS + DRM/KMS + EGL/GBM + Mesa stack hangs indefinitely on this
+# board somewhere between GBM surface creation and the first GL context -
+# reproduced with real Panfrost, with LIBGL_ALWAYS_SOFTWARE=1 forcing
+# llvmpipe, and with MESA_LOADER_DRIVER_OVERRIDE=swrast, so it is not
+# specific to any one rendering backend. linuxfb + Qt Quick's "software"
+# scene graph backend draws via QPainter straight to /dev/fb0, bypassing
+# EGL/DRM/GBM/Mesa entirely - much simpler code path, and it works.
+export QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0
+export QT_QUICK_BACKEND=software
+# Uncomment for verbose EGLFS/KMS debug output when troubleshooting display issues:
+# export QT_QPA_EGLFS_DEBUG=1
+# GStreamer's autoaudiosink hangs indefinitely opening this board's ALSA
+# audio device (audiocodec/ahubdam/ahubhdmi - audio bring-up not done yet),
+# which stalls the whole playbin clock and freezes video at position 0.
+# Forcing alsasink's rank to NONE makes autoaudiosink skip it and fall back
+# to its internal fake sink instead, so video plays (silently) immediately.
+export GST_PLUGIN_FEATURE_RANK=alsasink:0
+
+start() {
+	mkdir -p /var/log
+	echo "==== $(date) : starting $NAME ====" >> $LOGFILE
+	# Cold-cache mmap() page faults into the Qt5/Mesa/LLVM libraries can
+	# stall indefinitely on this board's SD storage (confirmed: plain
+	# sequential read()/cat of the same files, even run concurrently, is
+	# fine and fast - only mmap-backed page faults during actual code
+	# execution get stuck). Reading everything once via cat first (a
+	# known-good access pattern) warms the page cache so myqtapp's own
+	# faults are served from RAM instead of hitting that stall.
+	# printf "Warming library cache for $NAME: "
+	# find /usr/lib /usr/bin/$NAME -type f -exec cat {} + > /dev/null 2>&1
+	# echo "OK"
+	printf "Starting $NAME: "
+	start-stop-daemon -S -q -m -b -p $PIDFILE --exec /bin/sh -- -c "exec $DAEMON >>$LOGFILE 2>&1"
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+stop() {
+	printf "Stopping $NAME: "
+	start-stop-daemon -K -q -p $PIDFILE
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+restart() {
+	stop
+	start
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart|reload)
+	restart
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|reload}"
+	exit 1
+esac
+
+exit $?

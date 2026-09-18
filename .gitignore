@@ -1,0 +1,12 @@
+# Build artifacts and device logs, not project source
+build.log
+Logs/
+
+# Editor/tooling local state
+.vscode/
+.claude/
+
+# Unused vanilla mainline kernel clone kept locally for reference/testing
+# only - the board actually builds against the linux-orangepi submodule
+# (see local.mk). Not part of the tracked project.
+/linux-mainline/
