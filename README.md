@@ -154,6 +154,48 @@ Not done yet, in roughly the order they'd likely come up:
   `sprdbt_tty.ko` is built, but BT hasn't been touched (the
   `bt_configure_*.ini` files are bundled for when it is).
 
+## WiFi/BT firmware provenance
+
+`board/orangepi/orangepi-zero3/rootfs-overlay/lib/firmware/` bundles
+`wcnmodem.bin`, `wifi_2355b001_1ant.ini`, and `bt_configure_*.ini`
+directly (already committed, via `patches/buildroot/`), so a normal
+build just works - you don't need to redo this. It's documented here
+only in case the firmware ever needs to be re-extracted (e.g. a
+different chip revision, or Orange Pi ships an updated blob):
+
+1. Download Orange Pi's official OS image for the Zero3 (any image
+   built for this exact board works, since the firmware is tied to
+   the board's onboard chip, not the OS - the `Opios-arch-aarch64-xfce-
+   opizero3-*.img.xz` Arch build is what was used here).
+2. Decompress it: `xz -dk -T0 -c theimage.img.xz > opios.img` (uses a
+   few GB of disk - do this somewhere with room, not `/tmp`).
+3. Find the Linux rootfs partition's byte offset:
+   `fdisk -l opios.img` lists partitions in 512-byte sectors; the
+   second partition (`Linux`, not the small FAT32 boot one) is the
+   one you want. Offset in bytes = start sector * 512.
+4. Loop-mount it read-only:
+   `sudo mount -o loop,offset=<bytes>,ro opios.img mnt_rootfs`
+5. Copy out `mnt_rootfs/lib/firmware/wcnmodem.bin` and
+   `mnt_rootfs/lib/firmware/wifi_<chipid>_1ant.ini` into
+   `board/orangepi/orangepi-zero3/rootfs-overlay/lib/firmware/`. The
+   exact chip ID for the `_1ant.ini` filename is board-specific -
+   boot with just `wcnmodem.bin` in place first, and read it back out
+   of `dmesg` (`marlin_get_wcn_chipid: chipid: 0x...` and
+   `wifi ini path = /lib/firmware/wifi_<chipid>_1ant.ini`).
+6. `sudo umount mnt_rootfs`, then rebuild.
+
+Why this is needed at all: `linux-orangepi`'s own
+`drivers/net/wireless/uwe5622/unisocwcn/fw/wcnmodem.bin.hex` looks
+like the right file (same directory, same name minus `.hex`, `WCNM`
+container format), but it's a reference blob tagged for a *different*
+chip variant (`3EAA`/`30AC`, i.e. Marlin3/Marlin3E) than this board's
+actual chip (Marlin3-Lite, which needs an `MLAA`/`MLAB`-tagged image).
+The driver silently fails to find a matching tag
+(`marlin_firmware_parse_image imginfo is NULL`) and never brings the
+chip up. The official OS image's `wcnmodem.bin` has no such wrapper
+at all - it's the final, already-selected firmware for this one chip,
+used as-is.
+
 ## How to build
 
 ### 1. Clone
