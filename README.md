@@ -76,6 +76,17 @@ device, plus the app that runs on it:
   inserted USB mass-storage partition (`sd[a-z][0-9]*`) read-only to
   `/mnt/usb` (vfat is built into the kernel; exfat/ntfs3 are loaded as
   modules on demand so `mount`'s auto-detection can pick up either).
+- **WiFi**: onboard SDIO chip is a Unisoc/Spreadtrum UWE5622
+  (Marlin3-Lite, chip_id `0x2355b001`); `sprdwl_ng` is auto-loaded via
+  `/etc/modules-load.d/wifi.conf` (mdev's `$MODALIAS` rule doesn't
+  pick it up). Needs `/lib/firmware/wcnmodem.bin` +
+  `wifi_2355b001_1ant.ini`, extracted from Orange Pi's own official OS
+  image for this board - the `wcnmodem.bin.hex` bundled in
+  `linux-orangepi`'s own driver tree is a reference blob tagged for a
+  *different* chip variant (Marlin3/Marlin3E) and silently fails to
+  match ours. `wpa_supplicant`/`iw` are enabled for scanning/
+  connecting; verified with `iw dev wlan0 scan` finding real networks.
+  Not yet wired up to auto-connect on boot (see "What's next").
 - **Access**: SSH (`root`/`orangepi`) via OpenSSH.
 - **`myqtapp`** (`br2-external/package/myqtapp`): a Qt5 Widgets kiosk
   app that:
@@ -133,8 +144,15 @@ Not done yet, in roughly the order they'd likely come up:
   `gst1-libav`. Wiring up the stateless V4L2 M2M decode path (the
   `v4l2codecs` GStreamer plugin) needs udev-style hotplug support that
   isn't there yet (this rootfs uses `mdev`).
-- **WiFi**: driver presence was checked early on but never
-  followed up on.
+- **WiFi auto-connect**: scanning/connecting work manually
+  (`wpa_supplicant` and `udhcpc`), but nothing brings the interface up
+  or connects automatically on boot yet - needs a `wpa_supplicant.conf`
+  with real credentials plus an init script (or `ifupdown`/similar),
+  which isn't something to bake into the image with a real password
+  anyway.
+- **Bluetooth**: the UWE5622 is a combo WiFi+BT chip and
+  `sprdbt_tty.ko` is built, but BT hasn't been touched (the
+  `bt_configure_*.ini` files are bundled for when it is).
 
 ## How to build
 
