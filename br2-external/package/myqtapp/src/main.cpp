@@ -10,6 +10,11 @@
 #include <QVariantAnimation>
 #include <QElapsedTimer>
 #include <QScreen>
+#include <QDir>
+#include <QFileInfo>
+#include <QFile>
+
+static const QString kUsbMountPoint = QStringLiteral("/mnt/usb");
 
 class SplashWidget : public QWidget
 {
@@ -36,6 +41,32 @@ private:
     qreal m_opacity = 1.0;
 };
 
+static bool isUsbMounted()
+{
+    QFile mounts(QStringLiteral("/proc/mounts"));
+    if (!mounts.open(QIODevice::ReadOnly | QIODevice::Text))
+        return false;
+    const QByteArray data = mounts.readAll();
+    for (const QByteArray &line : data.split('\n')) {
+        const QList<QByteArray> fields = line.split(' ');
+        if (fields.size() >= 2 && fields.at(1) == kUsbMountPoint.toUtf8())
+            return true;
+    }
+    return false;
+}
+
+static QStringList findMp4Files(const QString &dirPath)
+{
+    QStringList result;
+    QDir dir(dirPath);
+    const QFileInfoList entries = dir.entryInfoList(QDir::Files, QDir::Name);
+    for (const QFileInfo &fi : entries) {
+        if (fi.suffix().compare(QStringLiteral("mp4"), Qt::CaseInsensitive) == 0)
+            result << fi.absoluteFilePath();
+    }
+    return result;
+}
+
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
@@ -43,9 +74,9 @@ int main(int argc, char *argv[])
     QElapsedTimer bootTimer;
     bootTimer.start();
 
-    QString videoSrc = QString::fromLocal8Bit(qgetenv("VIDEO_SRC"));
-    if (videoSrc.isEmpty())
-        videoSrc = QStringLiteral("/root/myvideo.mp4");
+    QString defaultVideoSrc = QString::fromLocal8Bit(qgetenv("VIDEO_SRC"));
+    if (defaultVideoSrc.isEmpty())
+        defaultVideoSrc = QStringLiteral("/root/myvideo.mp4");
 
     QWidget window;
     window.setStyleSheet("background-color: black;");
@@ -76,7 +107,41 @@ int main(int argc, char *argv[])
 
     QMediaPlayer player;
     player.setVideoOutput(videoWidget);
-    player.setMedia(QUrl::fromLocalFile(videoSrc));
+
+    // QMediaPlaylist's own Loop/auto-advance was unreliable on this board's
+    // GStreamer backend (re-opening the next/same source right after
+    // EndOfMedia intermittently failed with "Internal data stream error",
+    // even though the same file played back fine standalone via
+    // gst-launch-1.0, twice in a row). Advancing and looping the list
+    // manually - one setMedia()+play() call at a time - is what already
+    // worked reliably for the single-file case, so that's kept here too.
+    QStringList currentPlaylistFiles;
+    int currentIndex = 0;
+
+    auto playCurrent = [&]() {
+        player.setMedia(QUrl::fromLocalFile(currentPlaylistFiles.at(currentIndex)));
+        player.play();
+    };
+
+    // Checks for a mounted USB drive with *.mp4 files on it; falls back to
+    // the default video (VIDEO_SRC or /root/myvideo.mp4) otherwise. Called
+    // on startup and periodically, so plugging/unplugging a USB drive at
+    // runtime switches the playlist without needing a restart.
+    auto refreshPlaylist = [&]() {
+        QStringList files;
+        if (isUsbMounted())
+            files = findMp4Files(kUsbMountPoint);
+        if (files.isEmpty())
+            files << defaultVideoSrc;
+
+        if (files == currentPlaylistFiles)
+            return;
+
+        qDebug() << "[t=" << bootTimer.elapsed() << "ms] playlist changed:" << files;
+        currentPlaylistFiles = files;
+        currentIndex = 0;
+        playCurrent();
+    };
 
     bool splashMinTimeElapsed = false;
     bool mediaReady = false;
@@ -114,8 +179,8 @@ int main(int argc, char *argv[])
             trySwitchToVideo();
         }
         if (status == QMediaPlayer::EndOfMedia) {
-            player.setPosition(0);
-            player.play();
+            currentIndex = (currentIndex + 1) % currentPlaylistFiles.size();
+            playCurrent();
         }
     });
 
@@ -135,8 +200,12 @@ int main(int argc, char *argv[])
     });
     keepOnTop->start(200);
 
+    auto *usbPollTimer = new QTimer(&app);
+    QObject::connect(usbPollTimer, &QTimer::timeout, refreshPlaylist);
+    usbPollTimer->start(2000);
+
     qDebug() << "[t=" << bootTimer.elapsed() << "ms] splash shown, starting playback";
-    player.play();
+    refreshPlaylist();
 
     return app.exec();
 }

@@ -72,6 +72,10 @@ device, plus the app that runs on it:
 - **Storage**: SD card auto-expands its partition and filesystem to
   fill the card on first boot (`board/orangepi/orangepi-zero3/
   rootfs-overlay/etc/init.d/S03rootfs-expand`), raspi-config style.
+- **USB auto-mount**: a `mdev` rule + `/etc/mdev/usbmount.sh` mount any
+  inserted USB mass-storage partition (`sd[a-z][0-9]*`) read-only to
+  `/mnt/usb` (vfat is built into the kernel; exfat/ntfs3 are loaded as
+  modules on demand so `mount`'s auto-detection can pick up either).
 - **Access**: SSH (`root`/`orangepi`) via OpenSSH.
 - **`myqtapp`** (`br2-external/package/myqtapp`): a Qt5 Widgets kiosk
   app that:
@@ -79,8 +83,19 @@ device, plus the app that runs on it:
      resource, `assets/payzone-logo.png`) for a minimum of 5 seconds,
      with a 1-second fade transition into the video.
   2. Plays a fullscreen, looping video (`QMediaPlayer` + `QVideoWidget`,
-     GStreamer backend) from `/root/myvideo.mp4` by default, or
-     `$VIDEO_SRC` if set.
+     GStreamer backend). If a USB drive is mounted at `/mnt/usb` and
+     has any `*.mp4` files at its top level, those are played in name
+     order, looping back to the first after the last; otherwise it
+     falls back to `/root/myvideo.mp4` (bundled in the image) or
+     `$VIDEO_SRC` if set. Checked every 2s, so plugging/unplugging a
+     drive at runtime switches the playlist without a restart.
+  - Looping/advancing is done manually (one `setMedia()`+`play()` call
+    at a time on `EndOfMedia`) rather than with `QMediaPlaylist`'s own
+    `Loop` mode - the latter intermittently failed with "Internal data
+    stream error" when re-opening the next (or same, single-item)
+    source on this board's GStreamer backend, even though the same
+    file played back fine standalone via `gst-launch-1.0`, twice in a
+    row.
   - Video uses software H.264/AAC decode (`gst1-libav`, ffmpeg-based) -
     no hardware (cedrus) decode yet. Audio is intentionally disabled
     (`GST_PLUGIN_FEATURE_RANK=alsasink:0` in `S99myqtapp`) because
@@ -98,6 +113,28 @@ device, plus the app that runs on it:
   - `QT_QPA_FB_HIDECURSOR=1` disables the `linuxfb` platform's mouse
     cursor, which otherwise defaults to `Qt::ArrowCursor` at (0,0) -
     there's no pointer device on this kiosk anyway.
+
+## What's next
+
+Not done yet, in roughly the order they'd likely come up:
+
+- **U-Boot splash**: the `orangepi_zero3` U-Boot defconfig has no video
+  driver enabled at all (`VIDEO_DE2`/`SUNXI_DE2`/HDMI are all off) -
+  showing a logo this early means bringing up display output in U-Boot
+  from scratch, which is untested territory on this board and could
+  hit the same kind of issues as the kernel's GPU/display bring-up did.
+- **Audio**: the codec/DAI (`audiocodec`/`ahubdam`/`ahubhdmi` ALSA
+  cards are present per `/proc/asound/cards`, but untested) hasn't
+  been brought up - GStreamer's `autoaudiosink` hangs opening it, so
+  video playback is currently silent (`GST_PLUGIN_FEATURE_RANK=
+  alsasink:0`, see above).
+- **Hardware video decode**: `cedrus`/`sunxi_cedrus` (`/dev/video0`) is
+  registered by the kernel, but `myqtapp` decodes video in software via
+  `gst1-libav`. Wiring up the stateless V4L2 M2M decode path (the
+  `v4l2codecs` GStreamer plugin) needs udev-style hotplug support that
+  isn't there yet (this rootfs uses `mdev`).
+- **WiFi**: driver presence was checked early on but never
+  followed up on.
 
 ## How to build
 
