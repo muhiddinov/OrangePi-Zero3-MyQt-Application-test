@@ -1,7 +1,7 @@
-From db47465baf7ec13e8ab78e865ba42d81643d313e Mon Sep 17 00:00:00 2001
+From f7f5a4d99af7bf460ceef606f0bca8addacc7dfc Mon Sep 17 00:00:00 2001
 From: muhiddinov <muhiddinovabulqosim@gmail.com>
-Date: Fri, 18 Sep 2026 11:34:47 +0500
-Subject: [PATCH] opizero3: fix cpufreq-nvmem build, backport H616 PRCM
+Date: Fri, 18 Sep 2026 14:32:14 +0500
+Subject: [PATCH 1/2] opizero3: fix cpufreq-nvmem build, backport H616 PRCM
  power-domain
 
 - sun50i-cpufreq-nvmem: fix int/pointer type mismatch (opp_tables must

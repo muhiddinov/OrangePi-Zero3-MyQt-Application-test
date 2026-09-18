@@ -9,6 +9,7 @@
 #include <QStackedLayout>
 #include <QVariantAnimation>
 #include <QElapsedTimer>
+#include <QScreen>
 
 class SplashWidget : public QWidget
 {
@@ -48,6 +49,12 @@ int main(int argc, char *argv[])
 
     QWidget window;
     window.setStyleSheet("background-color: black;");
+    // Set the exact screen geometry before the first show/paint - without
+    // this, the window briefly paints at Qt's default fallback size
+    // (positioned in the top-left corner) before the fullscreen resize
+    // takes effect, which is visible as a small white/black flash there
+    // during myqtapp's (slow, dynamic-linking-heavy) startup.
+    window.setGeometry(QGuiApplication::primaryScreen()->geometry());
 
     auto *stack = new QStackedLayout(&window);
     stack->setStackingMode(QStackedLayout::StackAll);

@@ -59,6 +59,16 @@ device, plus the app that runs on it:
   - not specific to one rendering backend). The GUI runs on `linuxfb`
   + Qt Quick/Widgets' software (raster) paint path instead, which
   draws straight to `/dev/fb0` and bypasses EGL/DRM/GBM/Mesa entirely.
+- **Kernel boot logo**: `drivers/video/logo/logo_linux_clut224.ppm` is
+  replaced with a 1920x1000, <=224-color rendering of the full Payzone
+  logo (`patches/linux-orangepi/0002-*`), shown via
+  `fbcon=logo-pos:center,logo-count:1` (a single centered copy instead
+  of one per CPU core) and sized to stay just under the fbcon "boot
+  logo bigger than screen" cutoff so it still displays. Requires
+  `CONFIG_LOGO_LINUX_CLUT224=y` (set in `linux-extras.config`) and a
+  non-`quiet` console loglevel - a fully quiet boot reaches userspace
+  faster than the HDMI monitor can sync, and the logo is never
+  actually seen.
 - **Storage**: SD card auto-expands its partition and filesystem to
   fill the card on first boot (`board/orangepi/orangepi-zero3/
   rootfs-overlay/etc/init.d/S03rootfs-expand`), raspi-config style.
@@ -79,6 +89,15 @@ device, plus the app that runs on it:
   - The splash/video crossfade is done with a custom `QWidget::paintEvent`
     (`QPainter::setOpacity`) rather than `QGraphicsOpacityEffect`, which
     did not composite visibly under the `linuxfb` raster backend.
+  - The splash window's geometry is set explicitly from
+    `QGuiApplication::primaryScreen()->geometry()` before the first
+    show/paint - without this, the window briefly paints at Qt's
+    default fallback size in the top-left corner before the fullscreen
+    resize takes effect, visible as a black/white flash during
+    `myqtapp`'s (dynamic-linking-heavy) startup.
+  - `QT_QPA_FB_HIDECURSOR=1` disables the `linuxfb` platform's mouse
+    cursor, which otherwise defaults to `Qt::ArrowCursor` at (0,0) -
+    there's no pointer device on this kiosk anyway.
 
 ## How to build
 

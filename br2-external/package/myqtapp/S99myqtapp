@@ -23,6 +23,12 @@ export QT_QPA_FONTDIR=/usr/share/fonts/dejavu
 # EGL/DRM/GBM/Mesa entirely - much simpler code path, and it works.
 export QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0
 export QT_QUICK_BACKEND=software
+# Qt's linuxfb cursor defaults to Qt::ArrowCursor at position (0,0) before
+# any real pointer device repositions it - this is the black rectangle
+# briefly visible in the top-left corner while myqtapp starts up, before
+# our own splash screen paints over it. There is no touch/mouse input on
+# this kiosk device, so just disable the cursor outright.
+export QT_QPA_FB_HIDECURSOR=1
 # Uncomment for verbose EGLFS/KMS debug output when troubleshooting display issues:
 # export QT_QPA_EGLFS_DEBUG=1
 # GStreamer's autoaudiosink hangs indefinitely opening this board's ALSA
