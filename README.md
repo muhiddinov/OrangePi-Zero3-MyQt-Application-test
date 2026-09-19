@@ -60,8 +60,14 @@ device, plus the app that runs on it:
   + Qt Quick/Widgets' software (raster) paint path instead, which
   draws straight to `/dev/fb0` and bypasses EGL/DRM/GBM/Mesa entirely.
 - **Kernel boot logo**: `drivers/video/logo/logo_linux_clut224.ppm` is
-  replaced with a 1920x1000, <=224-color rendering of the full Payzone
-  logo (`patches/linux-orangepi/0002-*`), shown via
+  regenerated on every build (`local.mk`'s `LINUX_POST_RSYNC_HOOKS`,
+  running `board/orangepi/orangepi-zero3/gen-kernel-logo.py`) from the
+  *same* PNG `myqtapp` embeds for its own splash screen
+  (`br2-external/package/myqtapp/src/assets/payzone-logo.png`), so
+  editing one logo updates both - the kernel source tree's own
+  `.ppm` is never hand-edited or committed. Requires Pillow on the
+  build host (`pip install Pillow` / `python3-pillow`). Rendered onto
+  a 1536x800, <=224-color canvas, shown via
   `fbcon=logo-pos:center,logo-count:1` (a single centered copy instead
   of one per CPU core) and sized to stay just under the fbcon "boot
   logo bigger than screen" cutoff so it still displays. Requires
