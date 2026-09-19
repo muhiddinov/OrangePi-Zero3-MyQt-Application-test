@@ -1,6 +1,6 @@
-From 8c160fd22ddbacad3e34c37c0c3e8e172de8dd60 Mon Sep 17 00:00:00 2001
+From 7d1da0c9e2b2d2b6c8c3aa3da1d79c1a3059e3c7 Mon Sep 17 00:00:00 2001
 From: muhiddinov <muhiddinovabulqosim@gmail.com>
-Date: Sat, 19 Sep 2026 15:10:45 +0500
+Date: Sat, 19 Sep 2026 15:16:59 +0500
 Subject: [PATCH] orangepi_zero3: auto-generate kernel boot logo from myqtapp's
  PNG
 
@@ -10,7 +10,8 @@ drivers/video/logo/logo_linux_clut224.ppm from
 br2-external/package/myqtapp/src/assets/payzone-logo.png on every
 build, so the kernel boot logo and the userspace splash always match
 without hand-editing/committing a .ppm in the kernel tree. Also
-shrunk the canvas 20% (1920x1000 -> 1536x800).
+shrunk the canvas 20% (1920x1000 -> 1536x800), and the logo canvas
+background is now black to match myqtapp's splash screen.
 
 Swapped the bundled default video (rootfs-overlay/root/myvideo.mp4)
 to a new source file.
@@ -92,7 +93,7 @@ index 296f94b1747..095cc9e9d03 100755
 +fi
 diff --git a/board/orangepi/orangepi-zero3/gen-kernel-logo.py b/board/orangepi/orangepi-zero3/gen-kernel-logo.py
 new file mode 100755
-index 00000000000..4c12e8763b3
+index 00000000000..644c3226b0c
 --- /dev/null
 +++ b/board/orangepi/orangepi-zero3/gen-kernel-logo.py
 @@ -0,0 +1,63 @@
@@ -130,7 +131,7 @@ index 00000000000..4c12e8763b3
 +
 +    logo = Image.open(src_path).convert("RGBA")
 +
-+    canvas = Image.new("RGBA", (CANVAS_W, CANVAS_H), (255, 255, 255, 255))
++    canvas = Image.new("RGBA", (CANVAS_W, CANVAS_H), (0, 0, 0, 255))
 +    target_w = int(CANVAS_W * LOGO_WIDTH_FRACTION)
 +    scale = target_w / logo.width
 +    target_h = int(logo.height * scale)

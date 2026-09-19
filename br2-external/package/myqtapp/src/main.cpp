@@ -29,7 +29,7 @@ protected:
     {
         QPainter painter(this);
         painter.setOpacity(m_opacity);
-        painter.fillRect(rect(), Qt::white);
+        painter.fillRect(rect(), Qt::black);
         if (!m_logo.isNull()) {
             QPoint pos((width() - m_logo.width()) / 2, (height() - m_logo.height()) / 2);
             painter.drawPixmap(pos, m_logo);
